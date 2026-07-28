@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  role          Role      @default(AGENT_GUICHET)
+  password      String    // bcrypt hash
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  isActive      Boolean   @default(true)
+
+  transactions  Transaction[]
+  collectes     Collecte[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model Client {
+  id            String    @id @default(cuid())
+  nom           String
+  telephone     String    @unique
+  pieceIdentite String    @map("piece_identite")
+  adresse       String?
+  dateNaissance DateTime? @map("date_naissance")
+  profession    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  comptes       Compte[]
+  demandesCredit DemandeCredit[]
+
+  @@map("clients")
+}
+
+model Compte {
+  id            String    @id @default(cuid())
+  numero        String    @unique
+  clientId      String    @map("client_id")
+  type          TypeCompte
+  solde         Decimal   @default(0) @db.Decimal(15, 2)
+  soldeInitial  Decimal   @default(0) @map("solde_initial") @db.Decimal(15, 2)
+  projetNom     String?   @map("projet_nom")
+  dateOuverture DateTime  @default(now()) @map("date_ouverture")
+  statut        StatutCompte @default(ACTIF)
+  tauxInteret   Decimal?  @map("taux_interet") @db.Decimal(5, 2)
+
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  transactions  Transaction[]
+
+  @@map("comptes")
+}
+
+model Transaction {
+  id            String    @id @default(cuid())
+  type          TypeTransaction
+  compteId      String?   @map("compte_id")
+  compteSourceId String?  @map("compte_source_id")
+  compteDestId  String?   @map("compte_dest_id")
+  montant       Decimal   @db.Decimal(15, 2)
+  frais         Decimal   @default(0) @db.Decimal(15, 2)
+  motif         String?
+  statut        StatutTransaction @default(SUCCES)
+  agentId       String    @map("agent_id")
+  createdAt     DateTime  @default(now())
+
+  compte        Compte?   @relation(fields: [compteId], references: [id])
+  agent         User      @relation(fields: [agentId], references: [id])
+
+  @@map("transactions")
+}
+
+model Collecte {
+  id            String    @id @default(cuid())
+  clientId      String    @map("client_id")
+  montant       Decimal   @db.Decimal(15, 2)
+  localisation  String?
+  latitude      Decimal?  @db.Decimal(10, 8)
+  longitude     Decimal?  @db.Decimal(11, 8)
+  agentId       String    @map("agent_id")
+  createdAt     DateTime  @default(now())
+  synchronise   Boolean   @default(false)
+
+  agent         User      @relation(fields: [agentId], references: [id])
+
+  @@map("collectes")
+}
+
+model DemandeCredit {
+  id            String    @id @default(cuid())
+  clientId      String    @map("client_id")
+  montant       Decimal   @db.Decimal(15, 2)
+  dureeMois     Int       @map("duree_mois")
+  tauxInteret   Decimal   @map("taux_interet") @db.Decimal(5, 2)
+  motif         String
+  statut        StatutCredit @default(EN_ATTENTE)
+  capaciteRemb  Decimal?  @map("capacite_remb") @db.Decimal(15, 2)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  client        Client    @relation(fields: [clientId], references: [id])
+
+  @@map("demandes_credit")
+}
+
+model Parametre {
+  id            String    @id @default(cuid())
+  cle           String    @unique
+  valeur        String
+  description   String?
+  updatedAt     DateTime  @updatedAt
+
+  @@map("parametres")
+}
+
+model AuditLog {
+  id            String    @id @default(cuid())
+  action        String
+  details       String
+  userId        String?   @map("user_id")
+  ipAddress     String?   @map("ip_address")
+  userAgent     String?   @map("user_agent")
+  createdAt     DateTime  @default(now())
+
+  user          User?     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+enum Role {
+  ADMIN
+  AGENT_GUICHET
+  AGENT_COLLECTEUR
+  ANALYSTE_CREDIT
+  DIRIGEANT
+  AUDITEUR
+}
+
+enum TypeCompte {
+  EPARGNE
+  COURANT
+  PROJET
+}
+
+enum StatutCompte {
+  ACTIF
+  BLOQUE
+  CLOTURE
+}
+
+enum TypeTransaction {
+  DEPOT
+  RETRAIT
+  VIREMENT
+  COLLECTE
+  INTERET
+  FRAIS
+}
+
+enum StatutTransaction {
+  SUCCES
+  ECHEC
+  ANNULE
+  EN_ATTENTE
+}
+
+enum StatutCredit {
+  EN_ATTENTE
+  APPROUVE
+  REFUSE
+  DEBLOQUE
+  REMBOURSE
+  EN_RETARD
+}
