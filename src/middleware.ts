@@ -8,20 +8,31 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
+
   const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth");
   const isPublicRoute = nextUrl.pathname === "/login";
   const isApiRoute = nextUrl.pathname.startsWith("/api");
 
-  if (isApiAuthRoute) return NextResponse.next();
+  // 1. Autoriser les routes d'authentification de l'API
+  if (isApiAuthRoute) {
+    return NextResponse.next();
+  }
+
+  // 2. Protéger les routes API génériques
   if (isApiRoute && !isLoggedIn) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
+
+  // 3. Rediriger l'utilisateur non connecté vers /login
   if (!isLoggedIn && !isPublicRoute) {
-    return NextResponse.redirect(new URL("/login", nextUrl));
+    return NextResponse.redirect(new URL("/login", req.url));
   }
+
+  // 4. Rediriger l'utilisateur déjà connecté qui tente d'accéder à /login vers /dashboard
   if (isLoggedIn && isPublicRoute) {
-    return NextResponse.redirect(new URL("/dashboard", nextUrl));
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
+
   return NextResponse.next();
 });
 
