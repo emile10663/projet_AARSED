@@ -1,10 +1,12 @@
 // middleware.ts
-import NextAuth from "next-auth";
-import { authConfig } from "./auth.config";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export const { auth: middleware } = NextAuth(authConfig);
+export function middleware(request: NextRequest) {
+  // Simple passe-plat pour tester si le runtime Edge fonctionne sans NextAuth
+  return NextResponse.next();
+}
 
 export const config = {
-  // Exclut les fichiers statiques, images, favicon et les routes API
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
