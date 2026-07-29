@@ -59,15 +59,16 @@ export default function ClientsPage() {
             </tr>
           </thead>
           <tbody>
-            {clients.map((c) => (
-              <tr key={c.id} className="border-t border-gray-100">
-                <td className="py-3 font-medium">{c.nom}</td>
-                <td>{c.telephone}</td>
-                <td>{c.pieceIdentite}</td>
-                <td>{c.comptes.length}</td>
-                <td>{formatDate(c.createdAt)}</td>
-              </tr>
-            ))}
+            {(clients || []).map((c: any) => (
+  <tr key={c.id} className="border-t border-gray-100">
+    <td className="py-3 font-medium">{c.nom}</td>
+    <td>{c.telephone || "—"}</td>
+    <td>{c.pieceIdentite || "—"}</td>
+    {/* Chaînage optionnel sur c.comptes pour éviter de lire .length sur undefined */}
+    <td>{c.comptes?.length ?? 0}</td>
+    <td>{formatDate(c.createdAt)}</td>
+  </tr>
+))}
           </tbody>
         </table>
       </div>
