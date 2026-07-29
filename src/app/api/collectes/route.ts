@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     const collectes = await prisma.collecte.findMany({
       include: {
-        client: { select: { id: true, nom: true, prenom: true } }, // 👈 FIX 2: Inclus les infos du client pour l'UI
+        client: { select: { id: true, nom: true, telephone: true } }, // 👈 FIX 2: Inclus les infos du client pour l'UI
         agent: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },
