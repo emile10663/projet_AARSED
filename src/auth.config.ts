@@ -1,23 +1,31 @@
+// auth.config.ts
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig = {
   pages: {
-    signIn: "/login", // Redirige les utilisateurs non authentifiés ici
+    signIn: "/login",
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnLogin = nextUrl.pathname.startsWith("/login");
+      const isOnDashboard = nextUrl.pathname.startsWith("/dashboard");
 
-      // Si l'utilisateur est sur /login et déjà connecté, on l'envoie sur le dashboard
+      // 1. Si l'utilisateur est sur /login mais DÉJÀ connecté -> Rediriger vers /dashboard
       if (isOnLogin) {
         if (isLoggedIn) return Response.redirect(new URL("/dashboard", nextUrl));
-        return true;
+        return true; // Laisser l'accès libre à /login pour les non-connectés
       }
 
-      // Si l'utilisateur n'est pas connecté et qu'il n'est pas sur /login, NextAuth le redirige automatiquement
-      return isLoggedIn;
+      // 2. Si l'utilisateur essaie d'accéder au dashboard sans être connecté -> Bloquer (NextAuth redirigera vers /login)
+      if (isOnDashboard) {
+        if (isLoggedIn) return true;
+        return false; // Déclenche la redirection automatique vers pages.signIn (/login)
+      }
+
+      // 3. Pour toutes les autres pages publiques (comme /)
+      return true;
     },
   },
-  providers: [], // Toujours vide ici pour le middleware Edge !
+  providers: [], // Garder vide ici (compatible Edge)
 } satisfies NextAuthConfig;
