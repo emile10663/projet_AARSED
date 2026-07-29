@@ -38,7 +38,7 @@ model Client {
 
   comptes       Compte[]
   demandesCredit DemandeCredit[]
-
+  collectes      Collecte[]
   @@map("clients")
 }
 
@@ -91,7 +91,7 @@ model Collecte {
   synchronise   Boolean   @default(false)
 
   agent         User      @relation(fields: [agentId], references: [id])
-
+  client       Client   @relation(fields: [clientId], references: [id])
   @@map("collectes")
 }
 

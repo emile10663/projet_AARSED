@@ -1,85 +1,182 @@
-import { PrismaClient, Role, TypeCompte, TypeTransaction, StatutTransaction } from "@prisma/client";
+import { PrismaClient, Role, TypeCompte, TypeTransaction } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+// Force Prisma à utiliser DIRECT_URL pour le seeding local
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DIRECT_URL || process.env.DATABASE_URL,
+    },
+  },
+});
 
 async function main() {
-  // Créer les utilisateurs
-  const adminPass = await bcrypt.hash("admin123", 10);
-  const agentPass = await bcrypt.hash("agent123", 10);
+  console.log("🌱 Début de la réinitialisation et génération des données de démo...");
+
+  // 1. Nettoyage ordonné des données existantes (évite les erreurs de clés étrangères)
+  await prisma.auditLog.deleteMany();
+  await prisma.transaction.deleteMany();
+  await prisma.collecte.deleteMany();
+  await prisma.demandeCredit.deleteMany();
+  await prisma.compte.deleteMany();
+  await prisma.client.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.parametre.deleteMany();
+
+  // 2. Création des Utilisateurs
+  console.log("👤 Création des utilisateurs...");
+  const adminPassword = await bcrypt.hash("admin123", 10);
+  const agentPassword = await bcrypt.hash("agent123", 10);
 
   const admin = await prisma.user.create({
-    data: { email: "admin@aarsed.com", name: "Administrateur", role: Role.ADMIN, password: adminPass },
+    data: {
+      email: "admin@demo.com",
+      name: "Administrateur Système",
+      password: adminPassword,
+      role: Role.ADMIN,
+    },
   });
 
-  const agent = await prisma.user.create({
-    data: { email: "agent@aarsed.com", name: "Agent Guichet", role: Role.AGENT_GUICHET, password: agentPass },
+  const agentGuichet = await prisma.user.create({
+    data: {
+      email: "guichet@demo.com",
+      name: "Jean Dupont (Guichet)",
+      password: agentPassword,
+      role: Role.AGENT_GUICHET,
+    },
   });
 
-  const collecteur = await prisma.user.create({
-    data: { email: "collecteur@aarsed.com", name: "Agent Collecteur", role: Role.AGENT_COLLECTEUR, password: agentPass },
+  const agentCollecteur = await prisma.user.create({
+    data: {
+      email: "collecteur@demo.com",
+      name: "Marc Koffi (Collecteur)",
+      password: agentPassword,
+      role: Role.AGENT_COLLECTEUR,
+    },
   });
 
-  const analyste = await prisma.user.create({
-    data: { email: "analyste@aarsed.com", name: "Analyste Crédit", role: Role.ANALYSTE_CREDIT, password: agentPass },
+  // 3. Création des Clients
+  console.log("👥 Création des clients...");
+  const client1 = await prisma.client.create({
+    data: {
+      nom: "KOFFI Amen",
+      telephone: "+22890000001",
+      pieceIdentite: "TOGO-CNI-12345678",
+      adresse: "Lomé, quartier Adidogomé",
+      profession: "Commerçant",
+    },
   });
 
-  const dirigeant = await prisma.user.create({
-    data: { email: "dg@aarsed.com", name: "Directeur Général", role: Role.DIRIGEANT, password: agentPass },
+  const client2 = await prisma.client.create({
+    data: {
+      nom: "MENSAH Akpéné",
+      telephone: "+22890000002",
+      pieceIdentite: "TOGO-CNI-87654321",
+      adresse: "Atakpamé, centre-ville",
+      profession: "Enseignante",
+    },
   });
 
-  // Créer les clients
-  const clients = await Promise.all([
-    prisma.client.create({ data: { nom: "Koffi Amani", telephone: "+22890123456", pieceIdentite: "ID-TO-88432", adresse: "Lomé, Tokoin" } }),
-    prisma.client.create({ data: { nom: "Amouzou Esi", telephone: "+22892456789", pieceIdentite: "ID-TO-99121", adresse: "Lomé, Adidogin" } }),
-    prisma.client.create({ data: { nom: "Dossou Paul", telephone: "+22870334455", pieceIdentite: "ID-TO-11209", adresse: "Lomé, Kégué" } }),
-    prisma.client.create({ data: { nom: "Kossi Mawuena", telephone: "+22896789012", pieceIdentite: "ID-TO-44567", adresse: "Lomé, Bé" } }),
-    prisma.client.create({ data: { nom: "Abla Mensah", telephone: "+22891234567", pieceIdentite: "ID-TO-77890", adresse: "Lomé, Agoè" } }),
-  ]);
+  // 4. Création des Comptes bancaires
+  console.log("💳 Création des comptes...");
+  const compte1 = await prisma.compte.create({
+    data: {
+      numero: "CPT-2026-0001",
+      clientId: client1.id,
+      type: TypeCompte.COURANT,
+      solde: 150000.00,
+      soldeInitial: 50000.00,
+    },
+  });
 
-  // Créer les comptes
-  const comptes = await Promise.all([
-    prisma.compte.create({ data: { numero: "AAR-2026-0001", clientId: clients[0].id, type: TypeCompte.COURANT, solde: 450000, soldeInitial: 450000 } }),
-    prisma.compte.create({ data: { numero: "AAR-2026-0002", clientId: clients[0].id, type: TypeCompte.EPARGNE, solde: 1200000, soldeInitial: 1200000, tauxInteret: 3.5 } }),
-    prisma.compte.create({ data: { numero: "AAR-2026-0003", clientId: clients[1].id, type: TypeCompte.COURANT, solde: 320000, soldeInitial: 320000 } }),
-    prisma.compte.create({ data: { numero: "AAR-2026-0004", clientId: clients[2].id, type: TypeCompte.PROJET, solde: 800000, soldeInitial: 800000, tauxInteret: 5.0, projetNom: "Achat moto" } }),
-    prisma.compte.create({ data: { numero: "AAR-2026-0005", clientId: clients[3].id, type: TypeCompte.EPARGNE, solde: 2500000, soldeInitial: 2500000, tauxInteret: 3.5 } }),
-    prisma.compte.create({ data: { numero: "AAR-2026-0006", clientId: clients[4].id, type: TypeCompte.COURANT, solde: 150000, soldeInitial: 150000 } }),
-  ]);
+  const compte2 = await prisma.compte.create({
+    data: {
+      numero: "CPT-2026-0002",
+      clientId: client1.id,
+      type: TypeCompte.EPARGNE,
+      solde: 350000.00,
+      soldeInitial: 100000.00,
+      tauxInteret: 3.50,
+    },
+  });
 
-  // Créer des transactions
-  const now = new Date();
-  await Promise.all([
-    prisma.transaction.create({ data: { type: TypeTransaction.DEPOT, compteId: comptes[0].id, montant: 200000, agentId: agent.id, createdAt: new Date(now.getTime() - 2 * 86400000), motif: "Versement initial" } }),
-    prisma.transaction.create({ data: { type: TypeTransaction.RETRAIT, compteId: comptes[0].id, montant: 50000, agentId: agent.id, createdAt: new Date(now.getTime() - 86400000) } }),
-    prisma.transaction.create({ data: { type: TypeTransaction.DEPOT, compteId: comptes[1].id, montant: 500000, agentId: agent.id, createdAt: new Date(now.getTime() - 3 * 86400000) } }),
-    prisma.transaction.create({ data: { type: TypeTransaction.VIREMENT, compteSourceId: comptes[1].id, compteDestId: comptes[2].id, montant: 150000, agentId: agent.id, createdAt: new Date(now.getTime() - 1.5 * 86400000) } }),
-    prisma.transaction.create({ data: { type: TypeTransaction.COLLECTE, compteId: comptes[0].id, montant: 25000, agentId: collecteur.id, createdAt: now, motif: "Lomé" } }),
-  ]);
+  const compte3 = await prisma.compte.create({
+    data: {
+      numero: "CPT-2026-0003",
+      clientId: client2.id,
+      type: TypeCompte.PROJET,
+      projetNom: "Achat Équipement Informatique",
+      solde: 75000.00,
+      soldeInitial: 25000.00,
+      tauxInteret: 5.00,
+    },
+  });
 
-  // Paramètres système
-  await Promise.all([
-    prisma.parametre.create({ data: { cle: "TAUX_EPARGNE", valeur: "3.5", description: "Taux d'intérêt épargne annuel (%)" } }),
-    prisma.parametre.create({ data: { cle: "TAUX_PROJET", valeur: "5.0", description: "Taux d'intérêt épargne projet annuel (%)" } }),
-    prisma.parametre.create({ data: { cle: "FRAIS_RETRAIT", valeur: "500", description: "Frais fixes par retrait (FCFA)" } }),
-    prisma.parametre.create({ data: { cle: "COMMISSION_VIREMENT", valeur: "0.5", description: "Commission virement (%)" } }),
-    prisma.parametre.create({ data: { cle: "PLAFOND_RETRAIT_SANS_2FA", valeur: "100000", description: "Plafond retrait sans 2FA (FCFA)" } }),
-    prisma.parametre.create({ data: { cle: "DUREE_SESSION", valeur: "30", description: "Durée session en minutes" } }),
-  ]);
+  // 5. Création des Transactions
+  console.log("📊 Création des transactions...");
+  await prisma.transaction.create({
+    data: {
+      type: TypeTransaction.DEPOT,
+      compteId: compte1.id,
+      montant: 100000.00,
+      motif: "Dépôt initial au guichet",
+      agentId: agentGuichet.id,
+    },
+  });
 
-  // Logs d'audit
-  await Promise.all([
-    prisma.auditLog.create({ data: { action: "INITIALISATION", details: "Base de données initialisée avec données de démo", userId: admin.id } }),
-    prisma.auditLog.create({ data: { action: "CONNEXION", details: "Connexion back-office", userId: admin.id } }),
-  ]);
+  await prisma.transaction.create({
+    data: {
+      type: TypeTransaction.RETRAIT,
+      compteId: compte1.id,
+      montant: 20000.00,
+      frais: 100.00,
+      motif: "Retrait espèces client",
+      agentId: agentGuichet.id,
+    },
+  });
 
-  console.log("✅ Seed terminé avec succès !");
-  console.log("Identifiants de démo :");
-  console.log("  Admin    : admin@aarsed.com / admin123");
-  console.log("  Agent    : agent@aarsed.com / agent123");
-  console.log("  Collecteur : collecteur@aarsed.com / agent123");
+  // 6. Création des Collectes de terrain
+  console.log("📱 Création des collectes terrain...");
+  await prisma.collecte.create({
+    data: {
+      clientId: client1.id,
+      montant: 5000.00,
+      localisation: "Grand Marché de Lomé",
+      latitude: 6.13720000,
+      longitude: 1.21250000,
+      agentId: agentCollecteur.id,
+      synchronise: true,
+    },
+  });
+
+  // 7. Création des Paramètres du système
+  console.log("⚙️ Enregistrement des paramètres...");
+  await prisma.parametre.createMany({
+    data: [
+      { cle: "TAUX_EPARGNE_PAR_DEFAUT", valeur: "3.5", description: "Taux annuel épargne (%)" },
+      { cle: "FRAIS_RETRAIT_FIXE", valeur: "100", description: "Frais de retrait fixes en FCFA" },
+    ],
+  });
+
+  // 8. Enregistrement dans les journaux d'audit
+  console.log("📝 Enregistrement des journaux d'audit...");
+  await prisma.auditLog.create({
+    data: {
+      action: "INITIALISATION_SYSTEME",
+      details: "Génération automatique des données de démonstration",
+      userId: admin.id,
+      ipAddress: "127.0.0.1",
+    },
+  });
+
+  console.log("✅ Base de données initialisée avec succès !");
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); });
+  .catch((e) => {
+    console.error("❌ Erreur lors du seeding :", e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
